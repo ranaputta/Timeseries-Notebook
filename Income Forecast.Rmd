@@ -1,0 +1,82 @@
+
+```{r Load, include=FALSE}
+library(Ecdat)
+require(FinTS)
+library(forecast)
+data(IncomeUK)
+head(IncomeUK)
+consumption = IncomeUK[,2] 
+
+```
+
+#Problem 1 Describe the behavior of consumption. What types of differencing, seasonal, nonseasonal, or both, would you recommend? Do you recommend fitting a seasonal ARIMA model to the data with or without a log transformation? Consider also using ACF plots to help answer these questions.
+
+```{r Q1}
+plot(consumption)
+acf(consumption)
+plot(diff(consumption))
+acf(diff(consumption))
+logConsumption=log(consumption) #consumption is a time series
+plot(logConsumption)
+acf(logConsumption)
+```
+
+// From the first plot of consumption we can see that it is not a stationary time series. The graph increases as the time progressesing therefore it does not have a standard mean.
+//The ACF tests confirms what was said earlier about the time series. The ACF plot getting closer to 0.
+//Plotting the diff(consumption), we can see that the time series seems more stationary that before and we reconfirm this with the ACF plot. //This acf plot of the diff(consumption) plot shows us that the time series occurs periodically, hence suggesting seasonal effect.
+//It is preferable to use both seasonal and non seasonal differencing. 
+//The acf plot of log(consumption) still suggests that series is non stationary. Therefore producing no differnce. 
+//A seasonal ARIMA model without log transform would be ideal. 
+
+#Problem 2 Regardless of your answers to Problem 1, find an ARIMA model that provides a good fit to log(consumption). What order model did you select? (Give the orders of the nonseasonal and seasonal components.)
+```{r Q2, echo=FALSE}
+plot(pacf(log(consumption),lag.max=16))
+m1=auto.arima(logConsumption, ic='aic')
+summary(m1)
+
+```
+//Series: logConsumption 
+ARIMA(0,1,0)(0,1,1)[4]
+Non seasonal: (p,d,q)=(0,1,0)
+Seasonal: (P,D,Q) = (0,1,1)
+Seasonal period: 4
+
+#Problem 3 Check the ACF of the residuals from the model you selected in Problem 2. Do you see any residual autocorrelation?
+```{r Q3, echo=FALSE}
+acf(m1$residuals)
+Box.test(m1$residuals, lag=16,type="Ljung")
+
+```
+//The Box-Ljung test result show that p>0.01 and we fail to reject the null hypothesis that there is no residual auto correlation. 
+
+#Problem 4 Apply auto.arima to log(consumption) using BIC. What model is selected?
+```{r Q4, echo=FALSE}
+m2=auto.arima(logConsumption, ic='bic')
+summary(m2)
+```
+Series: logConsumption 
+ARIMA(0,1,0)(0,1,1)[4]
+//The same model as the above question is selected for both AIC and BIC models.
+//(1-B)*(1-B^4)*logConsumption$mean(t)=theta(0) +(1-theta(4) *(B^4))epsi(t)
+//(1-B)*(1-B^4)*logConsumption$mean(t)=(1-0.5348 * (B^4))epsi(t)
+
+
+#Problem 5 Forecast log(consumption) for the next eight quarters using the models you found in Problems 2 and 4. Plot the two sets of forecasts in side-by- side plots with the same limits on the x- and y-axes. Describe any differences between the two sets of forecasts. Using the backshift operator, write the models you found in problems 2 and 4.
+```{r Q5, echo=FALSE}
+foreAutoArima = forecast(m1,h=8)
+foreAutoArima_log = forecast(m2,h=8)
+par(mfrow=c(1,2))
+plot(foreAutoArima$mean,xlim=c(1985.5,1987.25),ylim=c(10.86,11))
+plot(foreAutoArima_log$mean,xlim=c(1985.5,1987.25),ylim=c(10.86,11))
+```
+//There are no noticable differences between the two plots. 
+
+#Problem 6 Include the variable include log(Income) as an exogenous variable to forecast log(consumption) using auto.arima.  According to the AIC, is this model better than the previous models? (Hint: use xreg to include exogenous variables in arima and auto.arima)
+```{r Q6, echo=FALSE}
+Income=IncomeUK[,1]
+Income_model=auto.arima(logConsumption,xreg=log(Income))
+summary(Income_model)
+```
+Series: logConsumption 
+Regression with ARIMA(2,0,0)(0,1,1)[4]
+//According to the AIC of -278.4, this is better than the previous AIC of -275.55. 

@@ -1,0 +1,188 @@
+---
+title: "Lab2 Volatility BIA656A"
+author: "Rana Putta"
+date: "10/14/2020"
+output: html_document
+---
+
+1. Consider the daily returns of the exchange trade fund (ETF) SPDR S&P 500 of State
+Street Global Advisors from September 4, 2001 to September 30, 2011. The tick symbol
+is SPY and there are 2535 observations. The simple returns are available from CRSP
+and in the file d-spy-0111.txt. Transform the simple returns to log returns.
+
+```{r Q1, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(fGarch)
+require(FinTS)
+require(rugarch)
+da=read.table("d-spy-0111.txt",header=T)  #<== Load data with header
+spy=log(da$rtn+1)
+acf(spy)
+t.test(spy)
+ArchTest(spy)  
+
+m1=garchFit(~arma(1,1)+garch(2,1),data=spy,trace=F,cond.dist="sstd") 
+summary(m1)
+sresi=m1@residuals/m1@sigma.t 
+acf(sresi)
+Box.test(sresi,lag=15,type="Ljung")
+Box.test(sresi^2,lag=15,type="Ljung")
+qqnorm(sresi)
+
+
+m2=garchFit(~arma(0,0)+garch(2,1),data=spy,trace=F,cond.dist="std")
+#summary(m2) 
+
+m3=garchFit(~arma(0,1)+garch(2,1),data=spy,trace=F,cond.dist="sstd")
+#summary(m3)
+
+m4=garchFit(~arma(1,0)+garch(2,1),data=spy,trace=F,cond.dist="sstd")
+#summary(m4) 
+
+
+m1@fit$ics[1]
+m2@fit$ics[1]
+m3@fit$ics[1]  
+m4@fit$ics[1]
+
+sresi2=m3@residuals/m3@sigma.t  ## For model checking
+acf(sresi2,lag.max = 10)
+Box.test(sresi2,lag=10,type="Ljung")
+Box.test(sresi2^2,lag=10,type="Ljung")
+
+
+spec1=ugarchspec(variance.model=list(model="apARCH",garchOrder=c(2,1)),
+                 mean.model=list(armaOrder=c(0,0)),distribution.model="std")
+
+m5=ugarchfit(spec=spec1,data=spy)
+m5  ### see output
+
+
+### prediction, 1-step to 5-step ahead
+p1 <- ugarchforecast(m5,n.ahead=5)
+p1
+
+sigma(p1) ### volatility prediction
+
+```
+(a) Is the expected log return zero? Are there any serial correlations in the log
+returns? Is there ARCH effect in the log returns?
+//
+No the expected log return is not zero. The p-value from thee t-test is 0.7909 and we cannot reject the null hypothesis. 
+Yes, there is ARCH effect in the log returns.
+
+(b) Fit a Gaussian ARMA-GARCH model for the log return series. Perform model
+checking, obtain the QQ-plot of the standardized residuals, and write down the
+fitted model. [Hint: Try GARCH(2,1).]
+//
+garchFit(~arma(1,1)+garch(2,1),data=spy,trace=F,cond.dist="sstd")
+AIC -6.340424 
+
+(c) Build an ARMA-GARCH model with Student-t innovations for the log return
+series. Perform model checking and write down the fitted model.
+//
+m1=garchFit(~arma(1,1)+garch(2,1),data=spy,trace=F,cond.dist="sstd")
+
+(d) Fit an ARMA-APARCH model with Student-t innovations to the data. Write
+down the fitted model and perform 1- to 5-step ahead predictions of the series
+and its volatility.
+//
+spec1=ugarchspec(variance.model=list(model="apARCH",garchOrder=c(2,1)),
+                 mean.model=list(armaOrder=c(0,0)),distribution.model="std")
+
+2. Consider the monthly stock returns of the Coca-Cola Company (KO) from January
+1961 to September 2011. The simple returns are available from CRSP and in the file
+m-ko-6111.txt. Transform the simple returns to log returns.
+```{r Q2, echo = FALSE}
+library(fGarch)
+require(FinTS)
+require(rugarch)
+
+da1=read.table("m-ko-6111.txt",header=T)  #<== Load data with header
+ko=log(da$rtn+1)
+acf(ko)
+t.test(ko)
+ArchTest(ko)
+
+m1=garchFit(~garch(2,1),data=ko,trace=F,cond.dist="sstd")
+summary(m1) 
+sresi=m1@residuals/m1@sigma.t  ## For model checking
+acf(sresi)
+Box.test(sresi,lag=15,type="Ljung")
+Box.test(sresi^2,lag=15,type="Ljung")
+
+m2=garchFit(~garch(1,1),data=ko,trace=F,cond.dist="std")
+summary(m2) 
+sresi1=m2@residuals/m2@sigma.t  ## For model checking
+acf(sresi)
+Box.test(sresi1,lag=15,type="Ljung")
+Box.test(sresi1^2,lag=15,type="Ljung")
+
+m1@fit$ics[1]
+m2@fit$ics[1]
+qqnorm(sresi)
+
+spec1=ugarchspec(variance.model=list(model="sGARCH",garchOrder=c(2,1)),
+                 mean.model=list(armaOrder=c(0,0)))
+m7=ugarchfit(spec=spec1,data=ko)
+m7  ### see output
+
+p1 <- ugarchforecast(m7,n.ahead=5)
+p1
+sigma(p1)
+```
+(a) Is the expected monthly log return zero? Is there any serial correlation in the log
+returns? Is there any ARCH effect in the log returns?
+//
+Yes there is ARCH effect in the log 
+
+(b) Build a Gaussian GARCH model for the log returns. Perform model checking
+and write down the fitted model.
+//
+m1=garchFit(~garch(2,1),data=ko,trace=F,cond.dist="sstd")
+
+(c) Build a GARCH model with Student-t innovations for the log returns. Perform
+model checking, obtain the QQ-plot of the standardized residuals, and write down
+the fitted model. Also, obtain 1- to 5-step ahead volatility predictions.
+//
+spec1=ugarchspec(variance.model=list(model="sGARCH",garchOrder=c(2,1)),
+                 mean.model=list(armaOrder=c(0,0)))
+                 
+3. Consider again the monthly log returns of KO stock. Multiple the log returns by 100.
+i.e., use percentage log returns
+```{r Q3, echo = FALSE}
+library(fGarch)
+require(FinTS)
+require(rugarch)
+
+da1=read.table("m-ko-6111.txt",header=T)  #<== Load data with header
+ko=log(da$rtn+1)*100
+acf(ko)
+t.test(ko)
+
+spec3=ugarchspec(variance.model=list(model="tGARCH"),mean.model=list(armaOrder=c(0,0)))
+k1=ugarchfit(spec=spec3,data=ko)
+k1
+
+variance.model=list(model="sGARCH",garchOrder=c(1,1), submodel="GARCH")
+mean.model=list(armaOrder=c(1,0),include.mean=TRUE,archm=T,archpow=2)
+spec4=ugarchspec(variance.model=variance.model,mean.model=mean.model,distribution.model="norm")
+
+k2=ugarchfit(spec=spec4,data=ko)
+k2
+
+```
+(a) Fit a TGARCH model to the series. Perform model checking and write down the
+fitted model. Is the leverage effect different from zero?
+//
+spec3=ugarchspec(variance.model=list(model="tGARCH"),mean.model=list(armaOrder=c(0,0)))
+Leverage effect is different from zero.
+
+
+(b) Fit a GARCH-M model to the series. Perform model checking and write down
+the fitted model. Is the risk premium significant? Why?
+//
+variance.model=list(model="sGARCH",garchOrder=c(1,1), submodel="GARCH")
+mean.model=list(armaOrder=c(1,0),include.mean=TRUE,archm=T,archpow=2)
+spec4=ugarchspec(variance.model=variance.model,mean.model=mean.model,distribution.model="norm")
+Risk premium is significant
